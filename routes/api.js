@@ -5,8 +5,11 @@ const arrayRoutesSvc = [
     require('./services/authSvc'),
     require('./services/administrative'),
     require('./services/test'),
-    require('./services/clientssRoutes'), // ADD THIS - direct path, no middleman
+    require('./services/clientssRoutes'),
     require('./services/servicesListRoutes'),
+    require('./services/transactionHdrRoutes'),
+    require('./services/transactionDtlRoutes'),
+    require('./services/billingHdrRoutes'),
 ];
 
 arrayRoutesSvc.forEach(routeSvc => {
