@@ -1,4 +1,35 @@
 const { select, insert, update, remove } = require("../../models/mainModel");
+const db = require("../../config/dbConnection");
+
+// ── helper: insert a notification row ────────────────────────────────────────
+const pushNotification = (id_number, first_name, last_name, type_of_notification) => {
+  const sql = `
+    INSERT INTO tbl_notifications
+      (id_number, first_name, last_name, type_of_notification, notif_status)
+    VALUES (?, ?, ?, ?, 0)
+  `;
+  db.query(sql, [id_number, first_name, last_name, type_of_notification], (err) => {
+    if (err) console.error("pushNotification error:", err);
+  });
+};
+
+// ── helper: get client name from tbltransactionhdr ClientID ──────────────────
+const getClientName = (clientid, callback) => {
+  const sql = `SELECT TradeName, LNF FROM tblclients WHERE ClientID = ? LIMIT 1`;
+  db.query(sql, [clientid], (err, rows) => {
+    if (err || !rows || rows.length === 0) return callback("", "");
+    const row = rows[0];
+    // TradeName is the business name; LNF is Last Name, First Name format
+    const name = row.TradeName || row.LNF || "";
+    // Split into first/last best-effort for the notification columns
+    const parts = name.split(" ");
+    const first = parts[0] || name;
+    const last  = parts.slice(1).join(" ") || "";
+    callback(first, last);
+  });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 module.exports.selecttransactionhdr = async function (req, res) {
   const result = await select({
@@ -32,19 +63,35 @@ module.exports.posttransactionhdr = async function (req, res) {
     status,
   } = req.body;
 
-  const data = await insert({
-    tableName: "tbltransactionhdr",
-    fieldValue: {
-      TransactionDate: transactiondate,
-      ClientID: clientid,
-      Particulars: particulars,
-      GrossTotal: grosstotal,
-      Discount: discount,
-      NetTotal: nettotal,
-      Status: status || "Active",
-    },
-  });
-  res.status(200).json({ success: true, data });
+  try {
+    const data = await insert({
+      tableName: "tbltransactionhdr",
+      fieldValue: {
+        TransactionDate: transactiondate,
+        ClientID:        clientid,
+        Particulars:     particulars,
+        GrossTotal:      grosstotal,
+        Discount:        discount,
+        NetTotal:        nettotal,
+        Status:          status || "Active",
+      },
+    });
+
+    // ── Fire notification after successful insert ──────────────────────────
+    getClientName(clientid, (first, last) => {
+      pushNotification(
+        clientid,
+        first,
+        last,
+        `New Transaction — ${particulars || "No particulars"} (₱${parseFloat(nettotal || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })})`
+      );
+    });
+
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("posttransactionhdr error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 
 module.exports.updatetransactionhdr = async function (req, res) {
@@ -62,14 +109,14 @@ module.exports.updatetransactionhdr = async function (req, res) {
   const data = await update({
     tableName: "tbltransactionhdr",
     fieldValue: {
-      ID: id,
+      ID:              id,
       TransactionDate: transactiondate,
-      ClientID: clientid,
-      Particulars: particulars,
-      GrossTotal: grosstotal,
-      Discount: discount,
-      NetTotal: nettotal,
-      Status: status,
+      ClientID:        clientid,
+      Particulars:     particulars,
+      GrossTotal:      grosstotal,
+      Discount:        discount,
+      NetTotal:        nettotal,
+      Status:          status,
     },
   });
   res.status(200).json({ success: true, data });

@@ -478,3 +478,124 @@ module.exports.getLog = async function (req, res) {
 };
 
 //remove
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE THESE METHODS AT THE BOTTOM OF:
+//   controller/administrative/UserListController.js
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /get-notifications
+// Returns all notifications ordered by newest first.
+module.exports.getNotifications = async function (req, res) {
+  try {
+    const query = `
+      SELECT 
+        n.id,
+        n.id_number,
+        n.first_name,
+        n.last_name,
+        n.type_of_notification,
+        n.notif_status,
+        n.time_created
+      FROM tbl_notifications n
+      ORDER BY n.time_created DESC
+    `;
+    db.query(query, [], (err, results) => {
+      if (err) {
+        console.error('getNotifications error:', err);
+        return res.status(500).json({ success: false, message: 'Server error' });
+      }
+      return res.status(200).json({ success: true, data: results });
+    });
+  } catch (error) {
+    console.error('getNotifications error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// POST /activate-client
+// Sets notif_status = 1 and activates the user account.
+module.exports.activateClient = async function (req, res) {
+  const { id_number } = req.query;
+  if (!id_number) {
+    return res.status(400).json({ success: false, message: 'Missing id_number' });
+  }
+  try {
+    // Mark notification as actioned
+    const updateNotif = `
+      UPDATE tbl_notifications 
+      SET notif_status = 1 
+      WHERE id_number = ? AND notif_status = 0
+    `;
+    db.query(updateNotif, [id_number], (err) => {
+      if (err) {
+        console.error('activateClient notif update error:', err);
+        return res.status(500).json({ success: false, message: 'Server error' });
+      }
+      // Activate the user in tbllogin (set is_active or status flag)
+      const activateUser = `
+        UPDATE tbllogin 
+        SET is_active = 1 
+        WHERE LoginID = ?
+      `;
+      db.query(activateUser, [id_number], (err2) => {
+        if (err2) {
+          console.error('activateClient user update error:', err2);
+          return res.status(500).json({ success: false, message: 'Server error' });
+        }
+        return res.status(200).json({ success: true, message: `User ${id_number} activated successfully` });
+      });
+    });
+  } catch (error) {
+    console.error('activateClient error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// POST /decline-client
+// Sets notif_status = 2 (declined) — does NOT activate the user.
+module.exports.declineClient = async function (req, res) {
+  const { id_number } = req.query;
+  if (!id_number) {
+    return res.status(400).json({ success: false, message: 'Missing id_number' });
+  }
+  try {
+    const updateNotif = `
+      UPDATE tbl_notifications 
+      SET notif_status = 2 
+      WHERE id_number = ? AND notif_status = 0
+    `;
+    db.query(updateNotif, [id_number], (err) => {
+      if (err) {
+        console.error('declineClient error:', err);
+        return res.status(500).json({ success: false, message: 'Server error' });
+      }
+      return res.status(200).json({ success: true, message: `User ${id_number} declined` });
+    });
+  } catch (error) {
+    console.error('declineClient error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// POST /mark-notification-read
+// Sets notif_status = 1 for a single notification by id.
+module.exports.markNotificationRead = async function (req, res) {
+  const { id } = req.query;
+  if (!id) {
+    return res.status(400).json({ success: false, message: 'Missing id' });
+  }
+  try {
+    const query = `UPDATE tbl_notifications SET notif_status = 1 WHERE id = ?`;
+    db.query(query, [id], (err) => {
+      if (err) {
+        console.error('markNotificationRead error:', err);
+        return res.status(500).json({ success: false, message: 'Server error' });
+      }
+      return res.status(200).json({ success: true, message: 'Notification marked as read' });
+    });
+  } catch (error) {
+    console.error('markNotificationRead error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
