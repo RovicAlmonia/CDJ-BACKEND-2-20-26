@@ -1,7 +1,6 @@
 const mainModel = require("../../models/mainModel");
 const db = require("../../config/dbConnection");
 
-// helper: run raw SQL using the db connection directly
 const rawQuery = (sql, values = []) =>
   new Promise((resolve, reject) => {
     db.query(sql, values, (err, result) => {
@@ -10,7 +9,6 @@ const rawQuery = (sql, values = []) =>
     });
   });
 
-// GET all services availed — joins transactiondtl + transactionhdr + clientss
 const selectservicesavailed = async (req, res) => {
   try {
     const sql = `
@@ -22,6 +20,7 @@ const selectservicesavailed = async (req, res) => {
         th.Status,
         c.ClientID,
         COALESCE(c.TradeName, c.LNF, c.ClientID) AS ClientName,
+        c.RetentionType,
         td.ServiceID,
         td.ServiceName,
         td.Rate,
@@ -30,10 +29,12 @@ const selectservicesavailed = async (req, res) => {
         td.Discount,
         td.Net,
         th.GrossTotal,
-        th.NetTotal
+        th.NetTotal,
+        sl.ServiceRenewalMonths
       FROM tbltransactiondtl td
       INNER JOIN tbltransactionhdr th ON td.TransactionHDRID = th.ID
       LEFT JOIN tblclients c ON th.ClientID = c.ClientID
+      LEFT JOIN tblserviceslist sl ON LOWER(TRIM(td.ServiceName)) = LOWER(TRIM(sl.ServiceName))
       ORDER BY th.TransactionDate DESC, th.ID DESC, td.ID ASC
     `;
     const result = await rawQuery(sql);
@@ -44,11 +45,11 @@ const selectservicesavailed = async (req, res) => {
   }
 };
 
-// GET services availed filtered by clientid
 const selectservicesavailedbyclient = async (req, res) => {
   try {
     const { clientid } = req.query;
-    if (!clientid) return res.status(400).json({ success: false, message: "clientid is required." });
+    if (!clientid)
+      return res.status(400).json({ success: false, message: "clientid is required." });
     const sql = `
       SELECT 
         td.ID,
@@ -58,16 +59,19 @@ const selectservicesavailedbyclient = async (req, res) => {
         th.Status,
         c.ClientID,
         COALESCE(c.TradeName, c.LNF, c.ClientID) AS ClientName,
+        c.RetentionType,
         td.ServiceID,
         td.ServiceName,
         td.Rate,
         td.QTY,
         td.Gross,
         td.Discount,
-        td.Net
+        td.Net,
+        sl.ServiceRenewalMonths
       FROM tbltransactiondtl td
       INNER JOIN tbltransactionhdr th ON td.TransactionHDRID = th.ID
       LEFT JOIN tblclients c ON th.ClientID = c.ClientID
+      LEFT JOIN tblserviceslist sl ON LOWER(TRIM(td.ServiceName)) = LOWER(TRIM(sl.ServiceName))
       WHERE th.ClientID = ?
       ORDER BY th.TransactionDate DESC, td.ID ASC
     `;
@@ -79,13 +83,13 @@ const selectservicesavailedbyclient = async (req, res) => {
   }
 };
 
-// GET services availed grouped by service — summary
 const selectservicesavailedsummary = async (req, res) => {
   try {
     const sql = `
       SELECT 
         td.ServiceID,
         td.ServiceName,
+        sl.ServiceRenewalMonths,
         COUNT(DISTINCT th.ClientID) AS UniqueClients,
         COUNT(td.ID)                AS TimesAvailed,
         SUM(td.QTY)                 AS TotalQty,
@@ -94,7 +98,8 @@ const selectservicesavailedsummary = async (req, res) => {
         SUM(td.Net)                 AS TotalNet
       FROM tbltransactiondtl td
       INNER JOIN tbltransactionhdr th ON td.TransactionHDRID = th.ID
-      GROUP BY td.ServiceID, td.ServiceName
+      LEFT JOIN tblserviceslist sl ON LOWER(TRIM(td.ServiceName)) = LOWER(TRIM(sl.ServiceName))
+      GROUP BY td.ServiceID, td.ServiceName, sl.ServiceRenewalMonths
       ORDER BY TimesAvailed DESC
     `;
     const result = await rawQuery(sql);
@@ -105,8 +110,4 @@ const selectservicesavailedsummary = async (req, res) => {
   }
 };
 
-module.exports = {
-  selectservicesavailed,
-  selectservicesavailedbyclient,
-  selectservicesavailedsummary,
-};
+module.exports = { selectservicesavailed, selectservicesavailedbyclient, selectservicesavailedsummary };
