@@ -12,6 +12,7 @@ const arrayRoutesSvc = [
     require('./services/billingHdrRoutes'),
     require('./services/servicesAvailedRoutes'),
     require('./services/paymentLedgerRoutes'),  // ← ADD THIS
+    require('./services/deletedlogRoutes'),  
 ];
 
 arrayRoutesSvc.forEach(routeSvc => {
