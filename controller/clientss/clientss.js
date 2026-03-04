@@ -2,21 +2,7 @@
 // clients.js — with deletion logging
 // ============================================================
 const { select, insert, update, remove } = require("../../models/mainModel");
-const db = require("../../config/dbConnection");
-
-const logDeletion = (module, recordId, recordLabel, deletedData, deletedBy) => {
-  return new Promise((resolve) => {
-    const sql = `
-      INSERT INTO tbldeleted_log 
-        (Module, RecordID, RecordLabel, DeletedData, DeletedBy, DeletedAt, ExpiresAt)
-      VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 60 DAY))
-    `;
-    db.query(sql, [module, String(recordId), recordLabel, JSON.stringify(deletedData), deletedBy || "system"], (err) => {
-      if (err) console.error(`[deletedLog] Failed to log ${module} deletion:`, err);
-      resolve();
-    });
-  });
-};
+const { logDeletion } = require("../deletedlog/deletedlog");
 
 module.exports.selectclients = async function (req, res) {
   const result = await select({ tableName: "tblclients", fields: ["*"] });
@@ -32,19 +18,47 @@ module.exports.selectclientbyid = async function (req, res) {
 };
 
 module.exports.postclients = async function (req, res) {
-  const { clientid, lnf, type, tradename, dateregistered, dateexpiration, dticertificationno, dtiexpirationdate, secidno, secexpirationdate, cdacertno, efpsaccount, taxclearancecertno, taxclearanceexpiration, philgeps, philgepscertno, philgepsexpiration, retentiontype, status } = req.body;
+  const {
+    clientid, lnf, type, tradename, dateregistered, dateexpiration,
+    dticertificationno, dtiexpirationdate, secidno, secexpirationdate,
+    cdacertno, efpsaccount, taxclearancecertno, taxclearanceexpiration,
+    philgeps, philgepscertno, philgepsexpiration, retentiontype, status,
+  } = req.body;
   const data = await insert({
     tableName: "tblclients",
-    fieldValue: { ClientID: clientid, LNF: lnf, Type: type, TradeName: tradename, DateRegistered: dateregistered, DateExpiration: dateexpiration, DTICertificationNo: dticertificationno, DTIExpirationDate: dtiexpirationdate, SECIDNo: secidno, SECExpirationDate: secexpirationdate, CDACertNo: cdacertno, EFPSAccount: efpsaccount, TaxClearanceCertNo: taxclearancecertno, TaxClearanceExpiration: taxclearanceexpiration, PhilGEPS: philgeps, PhilGEPSCertNo: philgepscertno, PhilGEPSExpiration: philgepsexpiration, RetentionType: retentiontype, Status: status },
+    fieldValue: {
+      ClientID: clientid, LNF: lnf, Type: type, TradeName: tradename,
+      DateRegistered: dateregistered, DateExpiration: dateexpiration,
+      DTICertificationNo: dticertificationno, DTIExpirationDate: dtiexpirationdate,
+      SECIDNo: secidno, SECExpirationDate: secexpirationdate,
+      CDACertNo: cdacertno, EFPSAccount: efpsaccount,
+      TaxClearanceCertNo: taxclearancecertno, TaxClearanceExpiration: taxclearanceexpiration,
+      PhilGEPS: philgeps, PhilGEPSCertNo: philgepscertno, PhilGEPSExpiration: philgepsexpiration,
+      RetentionType: retentiontype, Status: status,
+    },
   });
   res.status(200).json({ success: true, data });
 };
 
 module.exports.updateclients = async function (req, res) {
-  const { id, clientid, lnf, type, tradename, dateregistered, dateexpiration, dticertificationno, dtiexpirationdate, secidno, secexpirationdate, cdacertno, efpsaccount, taxclearancecertno, taxclearanceexpiration, philgeps, philgepscertno, philgepsexpiration, retentiontype, status } = req.body;
+  const {
+    id, clientid, lnf, type, tradename, dateregistered, dateexpiration,
+    dticertificationno, dtiexpirationdate, secidno, secexpirationdate,
+    cdacertno, efpsaccount, taxclearancecertno, taxclearanceexpiration,
+    philgeps, philgepscertno, philgepsexpiration, retentiontype, status,
+  } = req.body;
   const data = await update({
     tableName: "tblclients",
-    fieldValue: { ID: id, ClientID: clientid, LNF: lnf, Type: type, TradeName: tradename, DateRegistered: dateregistered, DateExpiration: dateexpiration, DTICertificationNo: dticertificationno, DTIExpirationDate: dtiexpirationdate, SECIDNo: secidno, SECExpirationDate: secexpirationdate, CDACertNo: cdacertno, EFPSAccount: efpsaccount, TaxClearanceCertNo: taxclearancecertno, TaxClearanceExpiration: taxclearanceexpiration, PhilGEPS: philgeps, PhilGEPSCertNo: philgepscertno, PhilGEPSExpiration: philgepsexpiration, RetentionType: retentiontype, Status: status },
+    fieldValue: {
+      ID: id, ClientID: clientid, LNF: lnf, Type: type, TradeName: tradename,
+      DateRegistered: dateregistered, DateExpiration: dateexpiration,
+      DTICertificationNo: dticertificationno, DTIExpirationDate: dtiexpirationdate,
+      SECIDNo: secidno, SECExpirationDate: secexpirationdate,
+      CDACertNo: cdacertno, EFPSAccount: efpsaccount,
+      TaxClearanceCertNo: taxclearancecertno, TaxClearanceExpiration: taxclearanceexpiration,
+      PhilGEPS: philgeps, PhilGEPSCertNo: philgepscertno, PhilGEPSExpiration: philgepsexpiration,
+      RetentionType: retentiontype, Status: status,
+    },
   });
   res.status(200).json({ success: true, data });
 };
@@ -74,11 +88,11 @@ module.exports.deleteclients = async function (req, res) {
 module.exports.getclientssummary = async function (req, res) {
   const result = await select({ tableName: "tblclients", fields: ["*"] });
   const list = Array.isArray(result?.data) ? result.data : [];
-  const total = list.length;
-  const active = list.filter((r) => r.Status === "Active").length;
-  const inactive = list.filter((r) => r.Status === "Inactive").length;
+  const total        = list.length;
+  const active       = list.filter((r) => r.Status === "Active").length;
+  const inactive     = list.filter((r) => r.Status === "Inactive").length;
   const soleProprietor = list.filter((r) => r.Type === "Sole Proprietorship").length;
-  const corporation = list.filter((r) => r.Type === "Corporation").length;
-  const coop = list.filter((r) => r.Type === "COOP").length;
+  const corporation  = list.filter((r) => r.Type === "Corporation").length;
+  const coop         = list.filter((r) => r.Type === "COOP").length;
   res.status(200).json({ success: true, data: { total, active, inactive, soleProprietor, corporation, coop } });
 };

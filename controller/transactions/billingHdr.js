@@ -3,20 +3,7 @@
 // ============================================================
 const { select, insert, update, remove } = require("../../models/mainModel");
 const db = require("../../config/dbConnection");
-
-const logDeletion = (module, recordId, recordLabel, deletedData, deletedBy) => {
-  return new Promise((resolve) => {
-    const sql = `
-      INSERT INTO tbldeleted_log 
-        (Module, RecordID, RecordLabel, DeletedData, DeletedBy, DeletedAt, ExpiresAt)
-      VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 60 DAY))
-    `;
-    db.query(sql, [module, String(recordId), recordLabel, JSON.stringify(deletedData), deletedBy || "system"], (err) => {
-      if (err) console.error(`[deletedLog] Failed to log ${module} deletion:`, err);
-      resolve();
-    });
-  });
-};
+const { logDeletion } = require("../deletedlog/deletedlog");
 
 // ── helper: insert a notification row ────────────────────────
 const pushNotification = (id_number, first_name, last_name, type_of_notification) => {
@@ -63,10 +50,18 @@ module.exports.postbillinghdr = async function (req, res) {
   try {
     const data = await insert({
       tableName: "tblbillinghdr",
-      fieldValue: { ClientID: clientid, Gross: gross, Discount: discount, Net: net, PaymentAmount: paymentamount, PaymentDate: paymentdate || null, PaymentMethod: paymentmethod || null, PaymentReference: paymentreference || null, PaymentStatus: paymentstatus || "Unpaid" },
+      fieldValue: {
+        ClientID: clientid, Gross: gross, Discount: discount, Net: net,
+        PaymentAmount: paymentamount, PaymentDate: paymentdate || null,
+        PaymentMethod: paymentmethod || null, PaymentReference: paymentreference || null,
+        PaymentStatus: paymentstatus || "Unpaid",
+      },
     });
     getClientName(clientid, (first, last) => {
-      pushNotification(clientid, first, last, `New Billing — ${paymentstatus || "Unpaid"} · ₱${parseFloat(net || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} · ${paymentmethod || "No method"}`);
+      pushNotification(
+        clientid, first, last,
+        `New Billing — ${paymentstatus || "Unpaid"} · ₱${parseFloat(net || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} · ${paymentmethod || "No method"}`
+      );
     });
     res.status(200).json({ success: true, data });
   } catch (error) {
@@ -79,7 +74,12 @@ module.exports.updatebillinghdr = async function (req, res) {
   const { id, clientid, gross, discount, net, paymentamount, paymentdate, paymentmethod, paymentreference, paymentstatus } = req.body;
   const data = await update({
     tableName: "tblbillinghdr",
-    fieldValue: { ClientID: clientid, Gross: gross, Discount: discount, Net: net, PaymentAmount: paymentamount, PaymentDate: paymentdate || null, PaymentMethod: paymentmethod || null, PaymentReference: paymentreference || null, PaymentStatus: paymentstatus || "Unpaid" },
+    fieldValue: {
+      ClientID: clientid, Gross: gross, Discount: discount, Net: net,
+      PaymentAmount: paymentamount, PaymentDate: paymentdate || null,
+      PaymentMethod: paymentmethod || null, PaymentReference: paymentreference || null,
+      PaymentStatus: paymentstatus || "Unpaid",
+    },
     where: ["ID = ?"],
     whereValue: [id],
   });

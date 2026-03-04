@@ -3,20 +3,7 @@
 // ============================================================
 const { select, insert, update, remove } = require("../../models/mainModel");
 const db = require("../../config/dbConnection");
-
-const logDeletion = (module, recordId, recordLabel, deletedData, deletedBy) => {
-  return new Promise((resolve) => {
-    const sql = `
-      INSERT INTO tbldeleted_log 
-        (Module, RecordID, RecordLabel, DeletedData, DeletedBy, DeletedAt, ExpiresAt)
-      VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 60 DAY))
-    `;
-    db.query(sql, [module, String(recordId), recordLabel, JSON.stringify(deletedData), deletedBy || "system"], (err) => {
-      if (err) console.error(`[deletedLog] Failed to log ${module} deletion:`, err);
-      resolve();
-    });
-  });
-};
+const { logDeletion } = require("../deletedlog/deletedlog");
 
 // ── helper: insert a notification row ────────────────────────
 const pushNotification = (id_number, first_name, last_name, type_of_notification) => {
@@ -56,10 +43,17 @@ module.exports.posttransactionhdr = async function (req, res) {
   try {
     const data = await insert({
       tableName: "tbltransactionhdr",
-      fieldValue: { TransactionDate: transactiondate, ClientID: clientid, Particulars: particulars, GrossTotal: grosstotal, Discount: discount, NetTotal: nettotal, Status: status || "Active" },
+      fieldValue: {
+        TransactionDate: transactiondate, ClientID: clientid, Particulars: particulars,
+        GrossTotal: grosstotal, Discount: discount, NetTotal: nettotal,
+        Status: status || "Active",
+      },
     });
     getClientName(clientid, (first, last) => {
-      pushNotification(clientid, first, last, `New Transaction — ${particulars || "No particulars"} (₱${parseFloat(nettotal || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })})`);
+      pushNotification(
+        clientid, first, last,
+        `New Transaction — ${particulars || "No particulars"} (₱${parseFloat(nettotal || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })})`
+      );
     });
     res.status(200).json({ success: true, data });
   } catch (error) {
@@ -72,7 +66,11 @@ module.exports.updatetransactionhdr = async function (req, res) {
   const { id, transactiondate, clientid, particulars, grosstotal, discount, nettotal, status } = req.body;
   const data = await update({
     tableName: "tbltransactionhdr",
-    fieldValue: { ID: id, TransactionDate: transactiondate, ClientID: clientid, Particulars: particulars, GrossTotal: grosstotal, Discount: discount, NetTotal: nettotal, Status: status },
+    fieldValue: {
+      ID: id, TransactionDate: transactiondate, ClientID: clientid,
+      Particulars: particulars, GrossTotal: grosstotal, Discount: discount,
+      NetTotal: nettotal, Status: status,
+    },
   });
   res.status(200).json({ success: true, data });
 };
