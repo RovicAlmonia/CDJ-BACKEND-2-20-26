@@ -1,17 +1,19 @@
-const ctrl = require("../../controller/transactions/transactionHdr");
+// services/transactionHdrRoutes.js
+const transactionhdr = require("../../controller/transactions/transactionhdr");
 
 module.exports = {
   routes: {
-    get: {
-      selecttransactionhdr:    ["/selecttransactionhdr",    ctrl.selecttransactionhdr],
-      selecttransactionhdrbyid:["/selecttransactionhdrbyid",ctrl.selecttransactionhdrbyid],
-    },
     post: {
-      posttransactionhdr:   ["/posttransactionhdr",   ctrl.posttransactionhdr],
-      updatetransactionhdr: ["/updatetransactionhdr", ctrl.updatetransactionhdr],
+      posttransactionhdr:       ["/posttransactionhdr",       transactionhdr.posttransactionhdr],
+      updatetransactionhdr:     ["/updatetransactionhdr",     transactionhdr.updatetransactionhdr],
+      updatetransactionstatus:  ["/updatetransactionstatus",  transactionhdr.updatetransactionstatus],  // ← ADD THIS
+    },
+    get: {
+      selecttransactionhdr:     ["/selecttransactionhdr",     transactionhdr.selecttransactionhdr],
+      selecttransactionhdrbyid: ["/selecttransactionhdrbyid", transactionhdr.selecttransactionhdrbyid],
     },
     remove: {
-      deletetransactionhdr: ["/deletetransactionhdr", ctrl.deletetransactionhdr],
+      deletetransactionhdr:     ["/deletetransactionhdr",     transactionhdr.deletetransactionhdr],
     },
   },
 };

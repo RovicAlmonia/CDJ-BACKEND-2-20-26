@@ -1,5 +1,5 @@
 // ============================================================
-// transactionhdr.js — with deletion logging
+// transactionhdr.js — with deletion logging + status update
 // ============================================================
 const { select, insert, update, remove } = require("../../models/mainModel");
 const db = require("../../config/dbConnection");
@@ -38,15 +38,65 @@ module.exports.selecttransactionhdrbyid = async function (req, res) {
   res.status(200).json({ success: true, data });
 };
 
+// ── Services Availed: one row per billing, all payments summed ─
+module.exports.selectclientservices = async function (req, res) {
+  try {
+    const { clientid } = req.query;
+    if (!clientid) {
+      return res.status(400).json({ success: false, message: "clientid is required." });
+    }
+
+    const sql = `
+      SELECT
+        t.ID              AS BillingID,
+        t.TransactionDate,
+        t.Particulars,
+        t.GrossTotal,
+        t.Discount,
+        t.NetTotal,
+        t.Status,
+        t.PreparedBy,
+        t.CreatedAt,
+        COALESCE(SUM(b.PaymentAmount), 0)                 AS TotalPaid,
+        (t.NetTotal - COALESCE(SUM(b.PaymentAmount), 0))  AS Balance
+      FROM tbltransactionhdr t
+      LEFT JOIN tblbillinghdr b
+             ON b.TransactionHDRID = t.ID
+      WHERE t.ClientID = ?
+      GROUP BY
+        t.ID, t.TransactionDate, t.Particulars,
+        t.GrossTotal, t.Discount, t.NetTotal,
+        t.Status, t.PreparedBy, t.CreatedAt
+      ORDER BY t.ID DESC
+    `;
+
+    db.query(sql, [clientid], (err, rows) => {
+      if (err) {
+        console.error("selectclientservices error:", err);
+        return res.status(500).json({ success: false, message: "Failed to fetch client services." });
+      }
+      res.status(200).json({ success: true, data: rows || [] });
+    });
+  } catch (error) {
+    console.error("selectclientservices error:", error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
 module.exports.posttransactionhdr = async function (req, res) {
-  const { transactiondate, clientid, particulars, grosstotal, discount, nettotal, status } = req.body;
+  const { transactiondate, clientid, particulars, grosstotal, discount, nettotal, status, preparedby } = req.body;
   try {
     const data = await insert({
       tableName: "tbltransactionhdr",
       fieldValue: {
-        TransactionDate: transactiondate, ClientID: clientid, Particulars: particulars,
-        GrossTotal: grosstotal, Discount: discount, NetTotal: nettotal,
+        TransactionDate: transactiondate,
+        ClientID: clientid,
+        Particulars: particulars,
+        GrossTotal: grosstotal,
+        Discount: discount,
+        NetTotal: nettotal,
         Status: status || "Active",
+        PreparedBy: preparedby || null,
       },
     });
     getClientName(clientid, (first, last) => {
@@ -63,16 +113,40 @@ module.exports.posttransactionhdr = async function (req, res) {
 };
 
 module.exports.updatetransactionhdr = async function (req, res) {
-  const { id, transactiondate, clientid, particulars, grosstotal, discount, nettotal, status } = req.body;
+  const { id, transactiondate, clientid, particulars, grosstotal, discount, nettotal, status, preparedby } = req.body;
   const data = await update({
     tableName: "tbltransactionhdr",
     fieldValue: {
-      ID: id, TransactionDate: transactiondate, ClientID: clientid,
-      Particulars: particulars, GrossTotal: grosstotal, Discount: discount,
-      NetTotal: nettotal, Status: status,
+      ID: id,
+      TransactionDate: transactiondate,
+      ClientID: clientid,
+      Particulars: particulars,
+      GrossTotal: grosstotal,
+      Discount: discount,
+      NetTotal: nettotal,
+      Status: status,
+      PreparedBy: preparedby || null,
     },
   });
   res.status(200).json({ success: true, data });
+};
+
+// ── update only the Status field (called after payment) ──────
+module.exports.updatetransactionstatus = async function (req, res) {
+  try {
+    const { id, status } = req.body;
+    if (!id || !status) {
+      return res.status(400).json({ success: false, message: "id and status are required." });
+    }
+    const data = await update({
+      tableName: "tbltransactionhdr",
+      fieldValue: { ID: id, Status: status },
+    });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("updatetransactionstatus error:", error);
+    res.status(500).json({ success: false, message: "Failed to update transaction status." });
+  }
 };
 
 module.exports.deletetransactionhdr = async function (req, res) {
