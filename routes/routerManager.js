@@ -24,3 +24,23 @@ module.exports = function(app) {
 // module.exports = function(app){
 //     app.use('/api', route_api);
 // }
+
+var route_api = require('./api');
+
+module.exports = function(app) {
+    // 🛠️ Custom body parser for /release-soa-view-lock
+    app.use('/api/release-soa-view-lock', require('express').text({ type: 'application/json' }), (req, res, next) => {
+        try {
+            if (typeof req.body === 'string') {
+                req.body = JSON.parse(req.body);
+            }
+            next();
+        } catch (error) {
+            console.error('Invalid JSON from beacon:', error);
+            res.status(400).json({ success: false, message: 'Invalid JSON' });
+        }
+    });
+
+    // ✅ Mount all API routes
+    app.use('/api', route_api);
+};

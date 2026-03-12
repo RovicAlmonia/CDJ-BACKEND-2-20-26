@@ -49,7 +49,7 @@ module.exports.selectclientservices = async function (req, res) {
   }
 };
 
-// ── GET: Transaction Ledger — JOIN tblbillinghdr + tbltransactionhdr ─
+// ── GET: Transaction Ledger ───────────────────────────────────
 // GET /selecttransactionledger?clientid=CDO-2019-003
 module.exports.selecttransactionledger = async function (req, res) {
   const { clientid } = req.query;
@@ -87,7 +87,7 @@ module.exports.selecttransactionledger = async function (req, res) {
   }
 };
 
-// ── GET: Payment Ledger — from tbltransactionhdr by ClientID ─
+// ── GET: Payment Ledger ───────────────────────────────────────
 // GET /selectpaymentledger?clientid=CDO-2019-003
 module.exports.selectpaymentledger = async function (req, res) {
   const { clientid } = req.query;
@@ -105,7 +105,7 @@ module.exports.selectpaymentledger = async function (req, res) {
   res.status(200).json({ success: true, data });
 };
 
-// ── POST: Add Payment — inserts into tbltransactionhdr ───────
+// ── POST: Add Payment ─────────────────────────────────────────
 // POST /postpayment
 module.exports.postpayment = async function (req, res) {
   const {

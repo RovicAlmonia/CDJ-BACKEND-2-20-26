@@ -1,4 +1,4 @@
-const ctrl = require("../../controller/clients/clientLedger");
+const ctrl = require("../../controller/clientss/clientLedger");
 
 module.exports = {
   routes: {
